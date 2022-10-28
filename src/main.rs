@@ -332,7 +332,7 @@ async fn main() {
                 }
                 for task in tasks { task.await.unwrap(); }
                 let serialized = serde_json::to_string_pretty(&*exercise_check_list.lock().unwrap()).unwrap();
-                fs::write("check_result.json", serialized).unwrap();
+                fs::write(".github/result/check_result.json", serialized).unwrap();
             } else {
                 let exercise = find_exercise(&subargs.name, &exercises);
                 run(exercise, verbose).unwrap_or_else(|_| std::process::exit(1));
