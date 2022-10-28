@@ -11,15 +11,17 @@ const run = async (): Promise<void> => {
       throw new Error('No GITHUB_WORKSPACE')
     }
     let configFile = path.resolve(cwd, '.github/classroom/autograding.json');
-    let outputFile = core.getInput('outputFile');
+    let outputFile = core.getInput('outputFile') || 'output.txt';
 
     core.info('configFile: ' + configFile);
     core.info('outputFile: ' + outputFile);
 
+    const scriptPath = core.getInput('scriptPath') || '.github/classroom'
+
     if(fs.existsSync(configFile)) {
       const data = fs.readFileSync(configFile)
       const json = JSON.parse(data.toString())
-      await runAll(json, cwd, outputFile, core.getInput('scriptPath'))
+      await runAll(json, cwd, outputFile, scriptPath)
     } else {
       await runAll({"externalFile": "handleResult.js"}, cwd, outputFile, core.getInput('scriptPath'))
     }

@@ -69,6 +69,7 @@ export const runAll = async (testConfig: TestConfig, cwd: string, testFile: stri
   // Output details
   core.setOutput('details', details);
 
+  log('handle external result')
   // handle external result
   if (testConfig.externalFile) {
     let externalFile = await import(path.join(scriptPath, testConfig.externalFile));
