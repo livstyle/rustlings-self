@@ -8,6 +8,8 @@ fn run_single_test_success_with_output() {
         .args(&["--nocapture", "run", "all_exercises"])
         // .current_dir("exercises/")
         .assert()
+        .success()
         // .code(0)
-        .stdout(predicates::str::contains("THIS TEST TOO SHALL PASS"));
+        .stdout(predicates::str::contains("总的题目数"))
+        ;
 }
