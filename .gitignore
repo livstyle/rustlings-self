@@ -12,4 +12,4 @@ rust-project.json
 *.iml
 *.o
 info.toml
-check_result.json
+.github/result/check_result.json
