@@ -7,6 +7,8 @@ use console::Emoji;
 use exercise::Current;
 use notify::DebouncedEvent;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
+use serde::{Deserialize, Serialize};
+use toml::value::Datetime;
 use std::ffi::OsStr;
 use std::fs;
 use std::io::{self, prelude::*};
@@ -140,6 +142,30 @@ struct ListArgs {
     solved: bool,
 }
 
+
+#[derive(Deserialize, Serialize)]
+pub struct ExerciseCheckList {
+    pub exercises: Vec<ExerciseResult>,
+    pub user_name: Option<String>,
+    pub statistics: ExerciseStatistics
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct ExerciseResult {
+    pub name: String,
+    pub result: bool
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct  ExerciseStatistics {
+    pub total_exercations: usize,
+    pub total_succeeds: usize,
+    pub total_failures: usize,
+    pub action_time: SystemTime,
+}
+
+
+
 #[tokio::main]
 async fn main() {
     let args: Args = argh::from_env();
@@ -248,16 +274,32 @@ async fn main() {
             let re = Regex::new("all_").unwrap();
             if re.is_match(&subargs.name) {
                 let now_start = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-                let dir_name = subargs.name.split("_").last().unwrap_or_else(|| { "livstyle" });
-                let re = Regex::new("exercises/").unwrap();
-                let toml_str_ = re.replace_all(&toml_str, "stuexer/".to_owned() + dir_name + "/");
-                    exercises = toml::from_str::<ExerciseList>(&toml_str_).unwrap().exercises;
+                // let dir_name = subargs.name.split("_").last().unwrap_or_else(|| { "livstyle" });
+                // let re = Regex::new("exercises/").unwrap();
+                // let toml_str_ = re.replace_all(&toml_str, "stuexer/".to_owned() + dir_name + "/");
+                //     exercises = toml::from_str::<ExerciseList>(&toml_str_).unwrap().exercises;
+
                 let rights = Arc::new(Mutex::new(0));
                 let alls = exercises.len();
+
+                let exercise_check_list =  Arc::new(Mutex::new(
+                    ExerciseCheckList {
+                        exercises: vec![], 
+                        user_name:  None, 
+                        statistics: ExerciseStatistics { 
+                            total_exercations: alls, 
+                            total_succeeds: 0, 
+                            total_failures: 0, 
+                            action_time: SystemTime::now(), 
+                        }
+                    }
+                ));
+
                 let mut tasks = vec![];
                 for exercise in exercises {
                     let inner_exercise = exercise;
                     let c_mutex = Arc::clone(&rights);
+                    let exercise_check_list_ref = Arc::clone(&exercise_check_list);
                     let verbose = verbose.clone();
                     let t = tokio::task::spawn( async move {
                         match run(&inner_exercise, verbose) {
@@ -268,6 +310,10 @@ async fn main() {
                                 println!("当前做正确的题目数: {}", *c_mutex.lock().unwrap());
                                 let now_end = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
                                 println!("当前修改试卷总耗时: {} s", now_end - now_start);
+                                exercise_check_list_ref.lock().unwrap().exercises.push(ExerciseResult{ 
+                                    name: inner_exercise.name, result: true,
+                                });
+                                exercise_check_list_ref.lock().unwrap().statistics.total_succeeds += 1;
                             },
                             Err(_) => {
                                 println!("{}执行失败", inner_exercise.name);
@@ -275,12 +321,18 @@ async fn main() {
                                 println!("当前做正确的题目数: {}", *c_mutex.lock().unwrap());
                                 let now_end = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
                                 println!("当前修改试卷耗时: {} s", now_end - now_start);
+                                exercise_check_list_ref.lock().unwrap().exercises.push(ExerciseResult{ 
+                                    name: inner_exercise.name, result: false,
+                                });
+                                exercise_check_list_ref.lock().unwrap().statistics.total_failures += 1;
                             }
                         }
                     });
                     tasks.push(t);
                 }
-                for task in tasks { task.await; }
+                for task in tasks { task.await.unwrap(); }
+                let serialized = serde_json::to_string_pretty(&*exercise_check_list.lock().unwrap()).unwrap();
+                fs::write(".github/check_result.json", serialized).unwrap();
             } else {
                 let exercise = find_exercise(&subargs.name, &exercises);
                 run(exercise, verbose).unwrap_or_else(|_| std::process::exit(1));
