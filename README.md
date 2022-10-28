@@ -16,13 +16,6 @@ _Note: If you're on Linux, make sure you've installed gcc. Deb: `sudo apt instal
 
 You will need to have Rust installed. You can get it by visiting https://rustup.rs. This'll also install Cargo, Rust's package/project manager.
 
-## MacOS/Linux
-## Windows
-
-To install Rustlings. Same as on MacOS/Linux, you will have access to the `rustlings` command after it.
-
-If you get a permission denied message, you might have to exclude the directory where you cloned Rustlings in your antivirus.
-
 ## Manually
 
 Basically: Clone the repository at the latest tag, run `cargo install --path .`.
@@ -71,6 +64,17 @@ Or simply use the following command to run the next unsolved exercise in the cou
 ```bash
 rustlings run next
 ```
+
+#### 添加自己的联系目录, 执行此命令可以在stuexer 创建新的目录并且会将exercies目录下的文件复制到次目录下并且以后的练习题可以在此目录下修改并检测; 例子中的jiangkun 为新建的目录
+```
+rustlings dir jiangkun
+```
+
+#### 卸载此练习目录, 恢复exercies作为默认练习题目录
+```
+rustlings undir jiangkun
+```
+
 
 #### 运行批改练习题 将exercises目录复制到stuexer目录下并重命名 例如 livstyle 然后运行 rustlings run all_${目录名} 这部分在改进中
 ```

@@ -1,5 +1,5 @@
 use regex::Regex;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::env;
 use std::fmt::{self, Display, Formatter};
 use std::fs::{self, remove_file, File};
@@ -24,7 +24,7 @@ pub fn temp_file() -> String {
 }
 
 // The mode of the exercise.
-#[derive(Deserialize, Copy, Clone, Debug)]
+#[derive(Deserialize, Copy, Clone, Debug, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Mode {
     // Indicates that the exercise should be compiled as a binary
@@ -35,14 +35,15 @@ pub enum Mode {
     Clippy,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct ExerciseList {
     pub exercises: Vec<Exercise>,
+    pub current: Current
 }
 
 // A representation of a rustlings exercise.
 // This is deserialized from the accompanying info.toml file
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize)]
 pub struct Exercise {
     // Name of the exercise
     pub name: String,
@@ -52,6 +53,12 @@ pub struct Exercise {
     pub mode: Mode,
     // The hint text associated with the exercise
     pub hint: String,
+}
+
+#[derive(Deserialize, Debug, Serialize)]
+pub struct Current {
+    // Current exercise directory
+    pub name: String,
 }
 
 // An enum to track of the state of an Exercise.

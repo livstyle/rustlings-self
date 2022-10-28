@@ -4,6 +4,7 @@ use crate::run::{reset, run};
 use crate::verify::verify;
 use argh::FromArgs;
 use console::Emoji;
+use exercise::Current;
 use notify::DebouncedEvent;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use std::ffi::OsStr;
@@ -53,6 +54,8 @@ enum Subcommands {
     Hint(HintArgs),
     List(ListArgs),
     Lsp(LspArgs),
+    Dir(DirArgs),
+    UnDir(UnDirArgs),
 }
 
 #[derive(FromArgs, PartialEq, Debug)]
@@ -69,6 +72,24 @@ struct WatchArgs {}
 #[argh(subcommand, name = "run")]
 /// Runs/Tests a single exercise
 struct RunArgs {
+    #[argh(positional)]
+    /// the name of the exercise
+    name: String,
+}
+
+#[derive(FromArgs, PartialEq, Debug)]
+#[argh(subcommand, name = "dir")]
+/// Runs/Tests a single exercise
+struct DirArgs {
+    #[argh(positional)]
+    /// the name of the exercise
+    name: String,
+}
+
+#[derive(FromArgs, PartialEq, Debug)]
+#[argh(subcommand, name = "undir")]
+/// Runs/Tests a single exercise
+struct UnDirArgs {
     #[argh(positional)]
     /// the name of the exercise
     name: String,
@@ -148,14 +169,24 @@ async fn main() {
         std::process::exit(1);
     }
 
-    let toml_str = &fs::read_to_string("info.toml").unwrap();
-    let mut exercises = toml::from_str::<ExerciseList>(&toml_str).unwrap().exercises;
+    let toml_str = fs::read_to_string("info.toml").unwrap();
+    let toml_instance = toml::from_str::<ExerciseList>(&toml_str).unwrap();
+    let mut exercises = toml_instance.exercises;
     let verbose = args.nocapture;
-
     let command = args.nested.unwrap_or_else(|| {
         println!("{DEFAULT_OUT}\n");
         std::process::exit(0);
     });
+    let current_dir = toml_instance.current;
+    if current_dir.name != "info" {
+        if let Subcommands::Dir(ref _s ) = command {
+            
+        } else {
+            let re = Regex::new("exercises/").unwrap();
+            let toml_str_ = re.replace_all(&toml_str, "stuexer/".to_owned() + &current_dir.name.to_owned() + "/");
+            exercises = toml::from_str::<ExerciseList>(&toml_str_).unwrap().exercises;
+        }
+    }
     match command {
         Subcommands::List(subargs) => {
             if !subargs.paths && !subargs.names {
@@ -219,8 +250,8 @@ async fn main() {
                 let now_start = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
                 let dir_name = subargs.name.split("_").last().unwrap_or_else(|| { "livstyle" });
                 let re = Regex::new("exercises/").unwrap();
-                let toml_str_ = re.replace_all(toml_str, "stuexer/".to_owned() + dir_name + "/");
-                exercises = toml::from_str::<ExerciseList>(&toml_str_).unwrap().exercises;
+                let toml_str_ = re.replace_all(&toml_str, "stuexer/".to_owned() + dir_name + "/");
+                    exercises = toml::from_str::<ExerciseList>(&toml_str_).unwrap().exercises;
                 let rights = Arc::new(Mutex::new(0));
                 let alls = exercises.len();
                 let mut tasks = vec![];
@@ -292,7 +323,7 @@ async fn main() {
             }
         }
 
-        Subcommands::Watch(_subargs) => match watch(&exercises, verbose) {
+        Subcommands::Watch(_subargs) => match watch(&exercises, verbose, &current_dir) {
             Err(e) => {
                 println!(
                     "Error: Could not watch your progress. Error message was {:?}.",
@@ -312,6 +343,35 @@ async fn main() {
                 println!("We hope you're enjoying learning about Rust!");
                 println!("If you want to continue working on the exercises at a later point, you can simply run `rustlings watch` again");
             }
+        },
+
+        Subcommands::Dir(_subargs) => {
+            // TODO 1. 文件复制问题 2. toml配置文件修改问题
+            let dir_name = &_subargs.name;
+            let dir_basepath = "stuexer/".to_owned()+ dir_name;
+            std::fs::create_dir(&dir_basepath);
+            for exercise in exercises {
+                let path = &exercise.path;
+                let file_name = path.file_name().unwrap().to_str().unwrap();
+                let _topath = dir_basepath.as_str().to_owned() + &exercise.path.to_str().unwrap().replace("exercises", "");
+                let _dir = _topath.replace(file_name, "");
+                std::fs::create_dir(&_dir);
+                std::fs::copy(path, _topath).unwrap();
+            }
+            let from_str = format!("\r\n[current]\r\nname = \"{}\"",current_dir.name);
+            let to_str = format!("\r\n[current]\r\nname = \"{}\"", dir_name);
+            let s_toml = toml_str.replace(&from_str, &to_str);
+            fs::write("info.toml", s_toml);
+        },
+        Subcommands::UnDir(_subargs) => {
+            // TODO 1. 文件复制问题 2. toml配置文件修改问题
+            let dir_name = &_subargs.name;
+            let dir_basepath = "stuexer/".to_owned()+ dir_name;
+            std::fs::remove_dir_all(&dir_basepath);
+            let from_str = format!("\r\n[current]\r\nname = \"{}\"",current_dir.name);
+            let to_str = format!("\r\n[current]\r\nname = \"{}\"", "info");
+            let s_toml = toml_str.replace(&from_str, &to_str);
+            fs::write("info.toml", s_toml);
         },
     }
 }
@@ -380,7 +440,7 @@ enum WatchStatus {
     Unfinished,
 }
 
-fn watch(exercises: &[Exercise], verbose: bool) -> notify::Result<WatchStatus> {
+fn watch(exercises: &[Exercise], verbose: bool, current_dir: &Current) -> notify::Result<WatchStatus> {
     /* Clears the terminal with an ANSI escape code.
     Works in UNIX and newer Windows terminals. */
     fn clear_screen() {
@@ -391,7 +451,14 @@ fn watch(exercises: &[Exercise], verbose: bool) -> notify::Result<WatchStatus> {
     let should_quit = Arc::new(AtomicBool::new(false));
 
     let mut watcher: RecommendedWatcher = Watcher::new(tx, Duration::from_secs(2))?;
-    watcher.watch(Path::new("./exercises"), RecursiveMode::Recursive)?;
+    if current_dir.name != "info" {
+        let mut path = "stuexer/".to_owned();
+        path.push_str(&current_dir.name);
+        watcher.watch(Path::new(&path), RecursiveMode::Recursive)?;
+    } else {
+        watcher.watch(Path::new("./exercises"), RecursiveMode::Recursive)?;
+    }
+    
 
     clear_screen();
 

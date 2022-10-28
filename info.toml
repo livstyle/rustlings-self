@@ -1,4 +1,6 @@
 # INTRO
+[current]
+name = "info"
 
 [[exercises]]
 name = "intro1"
