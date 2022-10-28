@@ -73,7 +73,7 @@ export const runAll = async (testConfig: TestConfig, cwd: string, testFile: stri
   if (testConfig.externalFile) {
     let externalFile = await import(path.join(scriptPath, testConfig.externalFile));
     await externalFile.run({points, availablePoints}, {
-      log,
+      log: core.info,
       github,
       axios
     });

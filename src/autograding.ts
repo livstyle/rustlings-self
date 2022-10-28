@@ -6,18 +6,22 @@ import {runAll} from './runner'
 const run = async (): Promise<void> => {
   try {
     const cwd = process.env['GITHUB_WORKSPACE']
+    core.info('cwd: ' + cwd);
     if (!cwd) {
       throw new Error('No GITHUB_WORKSPACE')
     }
-
     let configFile = path.resolve(cwd, '.github/classroom/autograding.json');
     let outputFile = core.getInput('outputFile');
+
+    core.info('configFile: ' + configFile);
+    core.info('outputFile: ' + outputFile);
+
     if(fs.existsSync(configFile)) {
       const data = fs.readFileSync(configFile)
       const json = JSON.parse(data.toString())
       await runAll(json, cwd, outputFile, core.getInput('scriptPath'))
     } else {
-      await runAll({}, cwd, outputFile, core.getInput('scriptPath'))
+      await runAll({"externalFile": "handleResult.js"}, cwd, outputFile, core.getInput('scriptPath'))
     }
 
   } catch (error) {
