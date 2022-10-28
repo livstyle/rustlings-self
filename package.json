@@ -5,7 +5,8 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc --noEmit && ncc build src/autograding.ts -o dist",
-    "test": "tsc --noEmit && jest"
+    "test": "tsc --noEmit && jest",
+    "start": "npm run build && node ."
   },
   "keywords": [
     "github",
