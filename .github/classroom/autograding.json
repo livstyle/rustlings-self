@@ -1,3 +1,4 @@
 {
-    "externalFile": "handleResult.js"
+    "externalFile": "handleResult.js",
+    "outputFile": "output.txt"
 }
